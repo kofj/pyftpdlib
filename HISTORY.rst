@@ -1,6 +1,200 @@
 Bug tracker at https://github.com/giampaolo/pyftpdlib/issues
 
-Version: 1.5.7 - XXXX-XX-XX
+Version: 2.2.1 - (IN DEVELOPMENT)
+=================================
+
+**Enhancements**
+
+* 686: distribute wheel binaries, not only .tar.gz.
+* 689: Fix file existence check for certificate files
+* Add a SECURITY.md mechanism to report critical vulnerabilities.
+
+**Bug fixes**
+
+* #411: [MultiprocessFTPServer] ``max_cons_per_ip`` had no effect, and
+  ``on_disconnect()`` was called right after a client connected.
+* #506: [MultiprocessFTPServer] crash with "can only test a child process"
+  on PASV / PORT once ``max_cons`` was reached. Also, Threaded and
+  Multiprocess servers accepted ``max_cons + 1`` clients.
+* #695: [MultiprocessFTPServer] idle clients were never disconnected
+  (``FTPHandler.timeout``).
+* [MultiprocessFTPServer] did not work on macOS, where the default
+  multiprocessing start method is "spawn" since Python 3.8: every new
+  connection failed with "cannot pickle 'select.kqueue' object". Also,
+  importing ``pyftpdlib.servers`` started a multiprocessing resource
+  tracker process.
+* [ThreadedFTPServer, MultiprocessFTPServer] a worker was started for
+  clients that disconnected right after connecting, possibly using a
+  file descriptor that belonged to something else.
+* [TLS_FTPHandler] NLST of an empty directory over a secure data channel
+  could close the connection without a TLS shutdown, making the client
+  fail with "shutdown while in init".
+* [TLS_FTPHandler] (Windows) if the client reset a secure data connection,
+  the server never closed it: it used 100% CPU retrying the TLS shutdown,
+  and never replied to the transfer command.
+* [TLS_FTPHandler] if the client closed the data connection during the TLS
+  handshake, the server never replied to the transfer command, and the
+  client waited forever.
+* [FTPHandler] if a data connection was closed (e.g. reset by the client)
+  before a transfer command was sent, the server replied "226 Transfer
+  complete." anyway, so the next command got the wrong reply.
+* [FTPServer] ``serve_forever(worker_processes=N)`` (prefork mode) did not
+  work on macOS, BSD and Solaris: the workers kept crashing and no client
+  could connect. The poller (kqueue, /dev/poll) is not inherited by, or
+  is shared with, the worker processes. On Linux the workers shared the
+  same epoll instance, so one worker could get the events of another.
+* [FTPHandler] (Windows) PORT / EPRT to an address refusing the connection
+  got no reply for 30 seconds, then "421 Active data channel timed out"
+  instead of "425 Can't connect to specified address".
+* [FTPServer] ``serve_forever(blocking=False)`` logged the server start
+  (">>> starting FTP server <<<") on every call.
+* [ThreadedFTPServer, MultiprocessFTPServer] the server start
+  (">>> starting FTP server on <address> <<<") was not logged.
+
+**Compatibility notes**
+
+* Python 3.6 and 3.7 are no longer supported.
+
+Version: 2.2.0 - 2026-02-08
+===========================
+
+**Enhancements**
+
+* #684: remove setup.py and move installation logic into pyproject.toml.
+
+**Bug fixes**
+
+* #676: Always return 200 for the ``OPTS UTF8`` and ``OPTS UTF-8 ON`` commands
+  to ensure correct FTP client compatibility when UTF-8 is supported.
+* #683: Fix 100% CPU spin in TLS connections after timeout.  (patch by Svante
+  Boberg)
+
+**Compatibility notes**
+
+* ``pyftpdlib.authorizers.AuthenticationFailed`` moved into
+  ``pyftpdlib.exceptions.AuthenticationFailed``. Old alias is still available.
+* ``pyftpdlib.authorizers.AuthorizerError`` moved into
+  ``pyftpdlib.exceptions.AuthorizerError``. Old alias is still available.
+* ``pyftpdlib.filesystems.FilesystemError`` moved into
+  ``pyftpdlib.exceptions.FilesystemError``. Old alias is still available.
+
+Version: 2.1.0 - 2025-09-25
+===========================
+
+**Enhancements**
+
+* #647: add CLI options to use FTPS:
+  * ``--tls``
+  * ``--certfile``
+  * ``--keyfile``,
+  * ``--tls-control-required``
+  * ``--tls-data-required``
+* #666: add new CLI options:
+  * ``--banner``
+  * ``--concurrency``
+  * ``--disable-sendfile``
+  * ``--encoding``
+  * ``--max-cons``
+  * ``--max-cons-per-ip``
+  * ``--max-login-attempts``
+  * ``--permit-foreign-addresses``
+  * ``--permit-privileged-ports``
+  * ``--timeout``
+  * ``--use-localtime``
+* #667: colorized output when using pyftpdlib from CLI (invoked via ``python3
+  -m pyftpdlib``).
+* #670: exclude unit tests from installation.
+
+**Bug fixes**
+
+* #656: Python 3.14 changed the default multiprocessing method for POSIX (sans
+  macOS) from fork to forkserver, breaking ``MultiprocessFTPServer`` class.
+  (patch by Miro Hrončok)
+
+Version: 2.0.1 - 2024-10-22
+===========================
+
+**Enhancements**
+
+* #651: Add ``make install-pydeps-test`` and ``make install-pydeps-dev``
+  targets. They can be used to install dependencies meant for running tests and
+  for local development. They can also be installed via ``pip install .[test]``
+  and ``pip install .[dev]``.
+
+**Bug fixes**
+
+* #650: file operations on Windows with Python 3.13 give "Permission denied".
+
+Version: 2.0.0 - 2024-09-04
+===========================
+
+**Enhancements**
+
+* #625: exposed a new ``FTPHandler.encoding`` attribute defaulting to
+  ``'utf-8'``. It can be used to change the encoding used for client / server
+  communication.
+* #629: removed Python 2.7 support.
+* #637: remove copies of asyncore.py and asynchat.py. Use backports from PYPI
+  instead.  (patch by @penguinpee)
+* #639: set default SSL version from deprecated ``SSLv23_METHOD`` to newer
+  ``TLS_SERVER_METHOD``. This is the setting recommended by latest OpenSSL doc,
+  and includes the TLSv1, TLSv1.1, TLSv1.2, TLSv1.3. Versions SSLv2 and SSLv3
+  are disabled.
+
+**Notes about backward compatibility**
+
+* #629: Python 2.7 is no longer supported.
+* #629: pysendfile module is no longer a required dependency, because we ceased
+  support for Python 2.
+* #639: (FTPS) SSLv2 and SSLv3 connections are no longer accepted when client
+  connects.
+
+Version: 1.5.10 - 2024-06-23
+============================
+
+**Enhancements**
+
+* #621: use black formatter.
+* #626: use argparse instead of deprecated optparse.
+* #628: use pytest instead of unittest.
+* #632: add ability to run tests in parallel with ``make test-parallel``.
+
+**Bug fixes**
+
+* #627: PermissionError may occur on Windows when binding ports from a
+  pre-configured PASV range.
+
+Version: 1.5.9 - 2023-10-25
+===========================
+
+**Enhancements**
+
+- #611: use ``ruff`` code style checker instead of flake8 + isort (much faster +
+  makes many more code quality checks).
+
+**Bug fixes**
+
+- #604: client connection may be reset in PASV/EPSV mode during TLS handshake.
+  (patch by Benedikt McMullin)
+- #607: possible infinite wait in Epoll  (patch by @stat1c-void)
+- #607: possible infinite traceback printing in DTPHandler (patch by
+  @stat1c-void)
+- #613: (CRITICAL) bugfix for TLS disconnect causing 100% CPU usage. (patch by
+  @hakai)
+- #614: close connection on SSL EOF error, instead of erroneously replying with
+  "226 Transfer completed."
+
+Version: 1.5.8 - 2023-10-02
+===========================
+
+**Enhancements**
+
+- #586: removed Python 2.6 support.
+- #591: speedup logging by 28% by using ``logging._srcfile = None`` trick. This
+  avoids calling ``calling sys._getframe()`` for each log record.
+- #605: added support for Python 3.12.
+
+Version: 1.5.7 - 2022-10-04
 ===========================
 
 **Enhancements**
@@ -11,6 +205,7 @@ Version: 1.5.7 - XXXX-XX-XX
 
 - #481: fix [WinError 10038] an operation was attempted on something that is
   not a socket.  (patch by Tailing Yuan)
+- #578, [critical]: FTPS broke with PyOpenSSL version 22.1.0.
 
 Version: 1.5.6 - 2020-02-16
 ===========================
@@ -42,7 +237,7 @@ Version: 1.5.4 - 2018-05-04
 
 **Bug fixes**
 
-- #431: Ctrl-C doesn't exit `python -m pyftpdlib` on Windows.
+- #431: Ctrl-C doesn't exit ``python -m pyftpdlib`` on Windows.
 - #436: ThreadedFTPServer.max_cons is evaluated threading.activeCount(). If
   the user uses threads of its own it will consume the number of max_cons.
 - #447: ThreadedFTPServer and MultiprocessFTPServer do not join() tasks which
@@ -56,7 +251,7 @@ Version: 1.5.3 - 2017-11-04
 - #201: implemented SITE MFMT command which changes file modification time.
   (patch by Tahir Ijaz)
 - #327: add username and password command line options
-- #433: documentation moved to readthedocs: http://pyftpdlib.readthedocs.io
+- #433: documentation moved to readthedocs: https://pyftpdlib.readthedocs.io
 
 **Bug fixes**
 
@@ -188,7 +383,7 @@ Version: 1.3.0 - Date: 2013-11-07
   Juan J. Martinez)
 - #265: FTPServer class cannot be used with Circus.
 - #272: pyftpdlib fails when imported on OpenBSD because of Python bug
-  http://bugs.python.org/issue3770
+  https://bugs.python.org/issue3770
 - #273: IOLoop.fileno() on BSD systems raises AttributeError.  (patch by
   Michael Ross)
 
@@ -380,7 +575,7 @@ namespaces has been moved here:
   (see issue 213)
 - ftpserver.py's log(), logline() and logerror() functions are deprecated.
   logging module is now used instead. See:
-  http://code.google.com/p/billiejoex/wiki/Tutorial#4.2_-_Logging_management
+  https://pyftpdlib.readthedocs.io/en/latest/tutorial.html#logging-management
 - Unicode is now used instead of bytes pretty much everywhere.
 - FTPHandler.__init__() and TLS_FTPHandler.__init__() signatures have changed:
   from __init__(conn, server)
@@ -496,7 +691,7 @@ Version: 0.6.0 - Date: 2011-01-24
   recommended in RFC-3659.  A FTPHandler.use_gmt_times attributed has
   been added and can be set to False in case local times are desired
   instead.
-- #124: pyftpdlib now accepts command line options to configure a stand alone
+- #124: pyftpdlib now accepts command line options to configure a standalone
   anonymous FTP server when running pyftpdlib with python's -m option.
 - #125: logs are now provided in a standardized format parsable by log
   analyzers. FTPHandler class provides two new methods to standardize
@@ -659,7 +854,7 @@ Version: 0.5.1 - Date: 2009-01-21
 - #98: added preliminary support for SITE command.
 - #99: a new script implementing FTPS (FTP over TLS/SSL) has been added to the
   demo directory. See:
-  http://code.google.com/p/pyftpdlib/source/browse/trunk/demo/tls_ftpd.py
+  https://code.google.com/p/pyftpdlib/source/browse/trunk/demo/tls_ftpd.py
 
 **Bug fixes**
 

@@ -5,7 +5,7 @@ By using pip:
 
 .. code-block:: sh
 
-    $ pip install pyftpdlib
+    $ pip3 install pyftpdlib
 
 From sources:
 
@@ -13,7 +13,7 @@ From sources:
 
     $ git clone git@github.com:giampaolo/pyftpdlib.git
     $ cd pyftpdlib
-    $ python setup.py install
+    $ pip3 install .
 
 You might want to run tests to make sure pyftpdlib works:
 
@@ -26,18 +26,19 @@ You might want to run tests to make sure pyftpdlib works:
 Additional dependencies
 -----------------------
 
-`PyOpenSSL <https://pypi.python.org/pypi/pyOpenSSL>`__, to support
-`FTPS <http://pyftpdlib.readthedocs.io/tutorial.html#ftps-ftp-over-tls-ssl-server>`__:
+`PyOpenSSL`_, to support `FTPS`_:
 
 .. code-block:: sh
 
-    $ pip install PyOpenSSL
+    $ pip3 install PyOpenSSL
 
-`pysendfile <https://github.com/giampaolo/pysendfile>`__, if you're on UNIX,
-in order to
-`speedup uploads <http://pyftpdlib.readthedocs.io/faqs.html#sendfile>`__
-(from server to client):
+`pywin32`_ if you want to use `WindowsAuthorizer`_ on Windows:
 
 .. code-block:: sh
 
-    $ pip install pysendfile
+    $ pip3 install pypiwin32
+
+.. _`FTPS`: https://pyftpdlib.readthedocs.io/en/latest/tutorial.html#ftps-ftp-over-tls-ssl-server
+.. _`PyOpenSSL`: https://pypi.org/project/pyOpenSSL
+.. _`WindowsAuthorizer`: api.html#pyftpdlib.authorizers.WindowsAuthorizer
+.. _`pywin32`: https://pypi.org/project/pywin32/

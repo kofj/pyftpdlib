@@ -7,8 +7,6 @@
 Welcome to pyftpdlib's documentation
 ====================================
 
-If you're in a hurry just skip to the `Tutorial <tutorial.html>`__.
-
 .. toctree::
     :maxdepth: 2
 
@@ -16,6 +14,7 @@ If you're in a hurry just skip to the `Tutorial <tutorial.html>`__.
     tutorial
     api
     faqs
+    cli
     benchmarks
     rfc-compliance
     adoptions

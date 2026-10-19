@@ -4,19 +4,18 @@
 
 """Process utils."""
 
-import errno
 import os
+import random
 import sys
 import time
 from binascii import hexlify
+
 try:
     import multiprocessing
 except ImportError:
     multiprocessing = None
 
-from ._compat import long
 from .log import logger
-
 
 _task_id = None
 
@@ -37,14 +36,12 @@ def cpu_count():
 
 
 def _reseed_random():
-    if 'random' not in sys.modules:
-        return
-    import random
+
     # If os.urandom is available, this method does the same thing as
-    # random.seed (at least as of python 2.6).  If os.urandom is not
-    # available, we mix in the pid in addition to a timestamp.
+    # random.seed.  If os.urandom is not available, we mix in the pid in
+    # addition to a timestamp.
     try:
-        seed = long(hexlify(os.urandom(16)), 16)
+        seed = int(hexlify(os.urandom(16)), 16)
     except NotImplementedError:
         seed = int(time.time() * 1000) ^ os.getpid()
     random.seed(seed)
@@ -68,7 +65,6 @@ def fork_processes(number, max_restarts=100):
     *fork_processes* returns None if all child processes have exited
     normally, but will otherwise only exit by throwing an exception.
     """
-    global _task_id
     assert _task_id is None
     if number is None or number <= 0:
         number = cpu_count()
@@ -95,20 +91,25 @@ def fork_processes(number, max_restarts=100):
     while children:
         try:
             pid, status = os.wait()
-        except OSError as e:
-            if e.errno == errno.EINTR:
-                continue
-            raise
+        except InterruptedError:
+            continue
         if pid not in children:
             continue
         id = children.pop(pid)
         if os.WIFSIGNALED(status):
-            logger.warning("child %d (pid %d) killed by signal %d, restarting",
-                           id, pid, os.WTERMSIG(status))
+            logger.warning(
+                "child %d (pid %d) killed by signal %d, restarting",
+                id,
+                pid,
+                os.WTERMSIG(status),
+            )
         elif os.WEXITSTATUS(status) != 0:
             logger.warning(
                 "child %d (pid %d) exited with status %d, restarting",
-                id, pid, os.WEXITSTATUS(status))
+                id,
+                pid,
+                os.WEXITSTATUS(status),
+            )
         else:
             logger.info("child %d (pid %d) exited normally", id, pid)
             continue

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
@@ -17,12 +17,13 @@ from pyftpdlib.servers import FTPServer
 
 
 def main():
-    authorizer = UnixAuthorizer(rejected_users=["root"],
-                                require_valid_shell=True)
+    authorizer = UnixAuthorizer(
+        rejected_users=["root"], require_valid_shell=True
+    )
     handler = FTPHandler
     handler.authorizer = authorizer
     handler.abstracted_fs = UnixFilesystem
-    server = FTPServer(('', 21), handler)
+    server = FTPServer(("", 21), handler)
     server.serve_forever()
 
 

@@ -23,7 +23,7 @@ D: Original pyftpdlib author and maintainer
 N: Jay Loden
 C: NJ, USA
 E: jloden@gmail.com
-W: http://www.jayloden.com
+W: http://jayloden.com/About.htm
 D: OS X and Linux platform development/testing
 
 N: Silas Sewell
@@ -41,6 +41,18 @@ D: FreeBSD port maintainer
 
 Contributors
 ============
+
+N: Miro Hrončok
+W: https://github.com/hroncok
+D: 656
+
+N: hakai
+W: https://github.com/hakai
+D: 613
+
+N: Benedikt McMullin
+W: https://github.com/moben
+D: 612
 
 N: Tailing Yuan
 W: https://github.com/yuantailing
@@ -198,7 +210,10 @@ E: git@torypages.com
 C: Canada
 D: Command line argument enhancements
 
-
 N: Tahir Ijaz
 W: https://github.com/tahirijaz24
 D: issue 201, 435
+
+N: Sandro
+W: https://github.com/penguinpee
+D: issue 637

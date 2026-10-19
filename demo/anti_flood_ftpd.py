@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
@@ -19,19 +19,20 @@ from pyftpdlib.servers import FTPServer
 class AntiFloodHandler(FTPHandler):
 
     cmds_per_second = 300  # max number of cmds per second
-    ban_for = 60 * 60      # 1 hour
+    ban_for = 60 * 60  # 1 hour
     banned_ips = []
 
     def __init__(self, *args, **kwargs):
         FTPHandler.__init__(self, *args, **kwargs)
         self.processed_cmds = 0
-        self.pcmds_callback = \
-            self.ioloop.call_every(1, self.check_processed_cmds)
+        self.pcmds_callback = self.ioloop.call_every(
+            1, self.check_processed_cmds
+        )
 
     def on_connect(self):
         # called when client connects.
         if self.remote_ip in self.banned_ips:
-            self.respond('550 You are banned.')
+            self.respond("550 You are banned.")
             self.close_when_done()
 
     def check_processed_cmds(self):
@@ -50,8 +51,8 @@ class AntiFloodHandler(FTPHandler):
     def ban(self, ip):
         # ban ip and schedule next un-ban
         if ip not in self.banned_ips:
-            self.log('banned IP %s for command flooding' % ip)
-        self.respond('550 You are banned for %s seconds.' % self.ban_for)
+            self.log(f"banned IP {ip} for command flooding")
+        self.respond(f"550 You are banned for {self.ban_for} seconds.")
         self.close()
         self.banned_ips.append(ip)
 
@@ -62,7 +63,7 @@ class AntiFloodHandler(FTPHandler):
         except ValueError:
             pass
         else:
-            self.log('unbanning IP %s' % ip)
+            self.log(f"unbanning IP {ip}")
 
     def close(self):
         FTPHandler.close(self)
@@ -72,13 +73,13 @@ class AntiFloodHandler(FTPHandler):
 
 def main():
     authorizer = DummyAuthorizer()
-    authorizer.add_user('user', '12345', '.', perm='elradfmwMT')
-    authorizer.add_anonymous('.')
+    authorizer.add_user("user", "12345", ".", perm="elradfmwMT")
+    authorizer.add_anonymous(".")
     handler = AntiFloodHandler
     handler.authorizer = authorizer
-    server = FTPServer(('', 2121), handler)
+    server = FTPServer(("", 2121), handler)
     server.serve_forever(timeout=1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

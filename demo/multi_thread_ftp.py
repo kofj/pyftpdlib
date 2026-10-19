@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
@@ -17,10 +17,10 @@ from pyftpdlib.servers import ThreadedFTPServer
 
 def main():
     authorizer = DummyAuthorizer()
-    authorizer.add_user('user', '12345', '.')
+    authorizer.add_user("user", "12345", ".")
     handler = FTPHandler
     handler.authorizer = authorizer
-    server = ThreadedFTPServer(('', 2121), handler)
+    server = ThreadedFTPServer(("", 2121), handler)
     server.serve_forever()
 
 

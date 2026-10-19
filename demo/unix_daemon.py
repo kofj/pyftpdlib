@@ -1,20 +1,20 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
 """A basic unix daemon using the python-daemon library:
-http://pypi.python.org/pypi/python-daemon
+https://pypi.org/project/python-daemon.
 
 Example usages:
 
- $ python unix_daemon.py start
- $ python unix_daemon.py stop
- $ python unix_daemon.py status
- $ python unix_daemon.py  # foreground (no daemon)
- $ python unix_daemon.py --logfile /var/log/ftpd.log start
- $ python unix_daemon.py --pidfile /var/run/ftpd.pid start
+ $ python3 unix_daemon.py start
+ $ python3 unix_daemon.py stop
+ $ python3 unix_daemon.py status
+ $ python3 unix_daemon.py  # foreground (no daemon)
+ $ python3 unix_daemon.py --logfile /var/log/ftpd.log start
+ $ python3 unix_daemon.py --pidfile /var/run/ftpd.pid start
 
 This is just a proof of concept which demonstrates how to daemonize
 the FTP server.
@@ -30,9 +30,8 @@ Authors:
  - Giampaolo Rodola' - g.rodola <at> gmail.com
 """
 
+import argparse
 import atexit
-import errno
-import optparse
 import os
 import signal
 import sys
@@ -42,7 +41,6 @@ from pyftpdlib.authorizers import UnixAuthorizer
 from pyftpdlib.filesystems import UnixFilesystem
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
-
 
 # overridable options
 HOST = ""
@@ -57,8 +55,9 @@ def pid_exists(pid):
     """Return True if a process with the given PID is currently running."""
     try:
         os.kill(pid, 0)
-    except OSError as err:
-        return err.errno == errno.EPERM
+    except PermissionError:
+        # EPERM clearly means there's a process to deny access to
+        return True
     else:
         return True
 
@@ -68,9 +67,8 @@ def get_pid():
     try:
         with open(PID_FILE) as f:
             return int(f.read().strip())
-    except IOError as err:
-        if err.errno != errno.ENOENT:
-            raise
+    except FileNotFoundError:
+        pass
 
 
 def stop():
@@ -83,21 +81,17 @@ def stop():
     sig = signal.SIGTERM
     i = 0
     while True:
-        sys.stdout.write('.')
+        sys.stdout.write(".")
         sys.stdout.flush()
         try:
             os.kill(pid, sig)
-        except OSError as err:
-            if err.errno == errno.ESRCH:
-                print("\nstopped (pid %s)" % pid)
-                return
-            else:
-                raise
+        except ProcessLookupError:
+            print(f"\nstopped (pid {pid})")
         i += 1
         if i == 25:
             sig = signal.SIGKILL
         elif i == 50:
-            sys.exit("\ncould not kill daemon (pid %s)" % pid)
+            sys.exit(f"\ncould not kill daemon (pid {pid})")
         time.sleep(0.1)
 
 
@@ -107,7 +101,7 @@ def status():
     if not pid or not pid_exists(pid):
         print("daemon not running")
     else:
-        print("daemon running with pid %s" % pid)
+        print(f"daemon running with pid {pid}")
     sys.exit(0)
 
 
@@ -122,6 +116,7 @@ def get_server():
 
 def daemonize():
     """A wrapper around python-daemonize context manager."""
+
     def _daemonize():
         pid = os.fork()
         if pid > 0:
@@ -142,22 +137,22 @@ def daemonize():
         # redirect standard file descriptors
         sys.stdout.flush()
         sys.stderr.flush()
-        si = open(LOG_FILE, 'r')
-        so = open(LOG_FILE, 'a+')
-        se = open(LOG_FILE, 'a+', 0)
+        si = open(LOG_FILE)
+        so = open(LOG_FILE, "a+")
+        se = open(LOG_FILE, "a+", 0)
         os.dup2(si.fileno(), sys.stdin.fileno())
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
 
         # write pidfile
         pid = str(os.getpid())
-        with open(PID_FILE, 'w') as f:
-            f.write("%s\n" % pid)
+        with open(PID_FILE, "w") as f:
+            f.write(f"{pid}\n")
         atexit.register(lambda: os.remove(PID_FILE))
 
     pid = get_pid()
     if pid and pid_exists(pid):
-        sys.exit('daemon already running (pid %s)' % pid)
+        sys.exit(f"daemon already running (pid {pid})")
     # instance FTPd before daemonizing, so that in case of problems we
     # get an exception here and exit immediately
     server = get_server()
@@ -167,40 +162,50 @@ def daemonize():
 
 def main():
     global PID_FILE, LOG_FILE
-    USAGE = "python [-p PIDFILE] [-l LOGFILE]\n\n" \
-            "Commands:\n  - start\n  - stop\n  - status"
-    parser = optparse.OptionParser(usage=USAGE)
-    parser.add_option('-l', '--logfile', dest='logfile',
-                      help='the log file location')
-    parser.add_option('-p', '--pidfile', dest='pidfile', default=PID_FILE,
-                      help='file to store/retreive daemon pid')
-    options, args = parser.parse_args()
+    USAGE = "python3 [-p PIDFILE] [-l LOGFILE]\n\n"
+    USAGE += "Commands:\n  - start\n  - stop\n  - status"
+
+    parser = argparse.ArgumentParser(usage=USAGE)
+    parser.add_argument(
+        "-l", "--logfile", dest="logfile", help="the log file location"
+    )
+    parser.add_argument(
+        "-p",
+        "--pidfile",
+        dest="pidfile",
+        default=PID_FILE,
+        help="file to store/retrieve daemon pid",
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        help="command to execute: start, stop, restart, status",
+    )
+
+    options = parser.parse_args()
 
     if options.pidfile:
         PID_FILE = options.pidfile
     if options.logfile:
         LOG_FILE = options.logfile
 
-    if not args:
+    if not options.command:
         server = get_server()
         server.serve_forever()
-    else:
-        if len(args) != 1:
-            sys.exit('too many commands')
-        elif args[0] == 'start':
-            daemonize()
-        elif args[0] == 'stop':
+    elif options.command == "start":
+        daemonize()
+    elif options.command == "stop":
+        stop()
+    elif options.command == "restart":
+        try:
             stop()
-        elif args[0] == 'restart':
-            try:
-                stop()
-            finally:
-                daemonize()
-        elif args[0] == 'status':
-            status()
-        else:
-            sys.exit('invalid command')
+        finally:
+            daemonize()
+    elif options.command == "status":
+        status()
+    else:
+        sys.exit("invalid command")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
@@ -19,7 +19,7 @@ from pyftpdlib.servers import FTPServer
 
 def main():
     authorizer = DummyAuthorizer()
-    authorizer.add_user('user', '12345', os.getcwd(), perm='elradfmwMT')
+    authorizer.add_user("user", "12345", os.getcwd(), perm="elradfmwMT")
     authorizer.add_anonymous(os.getcwd())
 
     dtp_handler = ThrottledDTPHandler
@@ -31,9 +31,9 @@ def main():
     # have the ftp handler use the alternative dtp handler class
     ftp_handler.dtp_handler = dtp_handler
 
-    server = FTPServer(('', 2121), ftp_handler)
+    server = FTPServer(("", 2121), ftp_handler)
     server.serve_forever()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -4,44 +4,32 @@
 
 """
 Logging support for pyftpdlib, inspired from Tornado's
-(http://www.tornadoweb.org/).
+(https://www.tornadoweb.org/).
 
 This is not supposed to be imported/used directly.
 Instead you should use logging.basicConfig before serve_forever().
 """
 
 import logging
-import sys
+import re
 import time
+
 try:
     import curses
 except ImportError:
     curses = None
 
-from ._compat import unicode
-
+from .utils import term_supports_colors
 
 # default logger
-logger = logging.getLogger('pyftpdlib')
-
-
-def _stderr_supports_color():
-    color = False
-    if curses is not None and sys.stderr.isatty():
-        try:
-            curses.setupterm()
-            if curses.tigetnum("colors") > 0:
-                color = True
-        except Exception:
-            pass
-    return color
+logger = logging.getLogger("pyftpdlib")
 
 
 # configurable options
 LEVEL = logging.INFO
-PREFIX = '[%(levelname)1.1s %(asctime)s]'
-PREFIX_MPROC = '[%(levelname)1.1s %(asctime)s %(process)s]'
-COLOURED = _stderr_supports_color()
+PREFIX = "[%(levelname)1.1s %(asctime)s]"
+PREFIX_MPROC = "[%(levelname)1.1s %(asctime)s %(process)s]"
+COLOURED = term_supports_colors()
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -54,11 +42,12 @@ class LogFormatter(logging.Formatter):
     * Timestamps on every log line.
     * Robust against str/bytes encoding problems.
     """
+
     PREFIX = PREFIX
 
     def __init__(self, *args, **kwargs):
         logging.Formatter.__init__(self, *args, **kwargs)
-        self._coloured = COLOURED and _stderr_supports_color()
+        self._coloured = COLOURED and term_supports_colors()
         if self._coloured:
             curses.setupterm()
             # The curses module has some str/bytes confusion in
@@ -66,36 +55,39 @@ class LogFormatter(logging.Formatter):
             # bytes, but only accept strings. In addition, we want to
             # output these strings with the logging module, which
             # works with unicode strings. The explicit calls to
-            # unicode() below are harmless in python2 but will do the
+            # str() below are harmless in python2 but will do the
             # right conversion in python 3.
-            fg_color = \
+            fg_color = (
                 curses.tigetstr("setaf") or curses.tigetstr("setf") or ""
-            if (3, 0) < sys.version_info < (3, 2, 3):
-                fg_color = unicode(fg_color, "ascii")
+            )
             self._colors = {
                 # blues
-                logging.DEBUG: unicode(curses.tparm(fg_color, 4), "ascii"),
+                logging.DEBUG: str(curses.tparm(fg_color, 4), "ascii"),
                 # green
-                logging.INFO: unicode(curses.tparm(fg_color, 2), "ascii"),
+                logging.INFO: str(curses.tparm(fg_color, 2), "ascii"),
                 # yellow
-                logging.WARNING: unicode(curses.tparm(fg_color, 3), "ascii"),
+                logging.WARNING: str(curses.tparm(fg_color, 3), "ascii"),
                 # red
-                logging.ERROR: unicode(curses.tparm(fg_color, 1), "ascii")
+                logging.ERROR: str(curses.tparm(fg_color, 1), "ascii"),
             }
-            self._normal = unicode(curses.tigetstr("sgr0"), "ascii")
+            self._normal = str(curses.tigetstr("sgr0"), "ascii")
 
     def format(self, record):
         try:
             record.message = record.getMessage()
         except Exception as err:
-            record.message = "Bad message (%r): %r" % (err, record.__dict__)
+            record.message = f"Bad message ({err!r}): {record.__dict__!r}"
 
-        record.asctime = time.strftime(TIME_FORMAT,
-                                       self.converter(record.created))
+        record.asctime = time.strftime(
+            TIME_FORMAT, self.converter(record.created)
+        )
         prefix = self.PREFIX % record.__dict__
         if self._coloured:
-            prefix = self._colors.get(record.levelno, self._normal) + \
-                prefix + self._normal
+            prefix = (
+                self._colors.get(record.levelno, self._normal)
+                + prefix
+                + self._normal
+            )
 
         # Encoding notes:  The logging module prefers to work with character
         # strings, but only enforces that log messages are instances of
@@ -114,14 +106,13 @@ class LogFormatter(logging.Formatter):
         # result are so useless (and tornado is fond of using utf8-encoded
         # byte strings wherever possible).
         try:
-            message = unicode(record.message)
+            message = str(record.message)
         except UnicodeDecodeError:
             message = repr(record.message)
 
         formatted = prefix + " " + message
-        if record.exc_info:
-            if not record.exc_text:
-                record.exc_text = self.formatException(record.exc_info)
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
         if record.exc_text:
             formatted = formatted.rstrip() + "\n" + record.exc_text
         return formatted.replace("\n", "\n    ")
@@ -130,34 +121,52 @@ class LogFormatter(logging.Formatter):
 def debug(s, inst=None):
     s = "[debug] " + s
     if inst is not None:
-        s += " (%r)" % inst
+        s += f" ({inst!r})"
     logger.debug(s)
 
 
 def is_logging_configured():
-    if logging.getLogger('pyftpdlib').handlers:
+    if logging.getLogger("pyftpdlib").handlers:
         return True
-    if logging.root.handlers:
-        return True
-    return False
+    return bool(logging.root.handlers)
 
 
 # TODO: write tests
+
+
 def config_logging(level=LEVEL, prefix=PREFIX, other_loggers=None):
-    # Little speed up
-    if "(process)" not in prefix:
+    # Speedup logging by preventing certain internal log record info to
+    # be unnecessarily fetched. This results in about 28% speedup. See:
+    # * https://docs.python.org/3/howto/logging.html#optimization
+    # * https://docs.python.org/3/library/logging.html#logrecord-attributes
+    # * https://stackoverflow.com/a/38924153/376587
+    key_names = set(
+        re.findall(
+            r"(?<!%)%\(([^)]+)\)[-# +0-9.hlL]*[diouxXeEfFgGcrs]", prefix
+        )
+    )
+    if "process" not in key_names:
         logging.logProcesses = False
-    if "%(processName)s" not in prefix:
+    if "processName" not in key_names:
         logging.logMultiprocessing = False
-    if "%(thread)d" not in prefix and "%(threadName)s" not in prefix:
+    if "thread" not in key_names and "threadName" not in key_names:
         logging.logThreads = False
+    if (
+        "filename" not in key_names
+        and "pathname" not in key_names
+        and "lineno" not in key_names
+        and "module" not in key_names
+    ):
+        # biggest speedup as it avoids calling sys._getframe()
+        logging._srcfile = None
+
     handler = logging.StreamHandler()
     formatter = LogFormatter()
     formatter.PREFIX = prefix
     handler.setFormatter(formatter)
-    loggers = [logging.getLogger('pyftpdlib')]
+    loggers = [logging.getLogger("pyftpdlib")]
     if other_loggers is not None:
         loggers.extend(other_loggers)
-    for logger in loggers:
-        logger.setLevel(level)
-        logger.addHandler(handler)
+    for log in loggers:
+        log.setLevel(level)
+        log.addHandler(handler)
